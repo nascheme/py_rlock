@@ -1,0 +1,6 @@
+include LICENSE.txt
+include README.md
+include py_rlock.h
+include rlock_test.c
+include setup.py
+include test_py_rlock.py
