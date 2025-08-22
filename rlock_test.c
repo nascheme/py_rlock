@@ -11,20 +11,18 @@ rlock_test_exec(PyObject *module)
 {
     py_rlock m = {0};
     py_rlock_lock(&m);
-    if (!py_rlock_is_locked(&m)) {
+    if (!py_rlock_is_locked_by_current_thread(&m)) {
         Py_FatalError("mutex is not locked");
     }
     py_rlock_lock(&m);
-    if (!py_rlock_is_locked(&m)) {
+    if (!py_rlock_is_locked_by_current_thread(&m)) {
         Py_FatalError("mutex is not locked");
     }
     py_rlock_unlock(&m);
     py_rlock_unlock(&m);
-#if PY_VERSION_HEX > 0x030E00B1
-    if (py_rlock_is_locked(&m)) {
+    if (py_rlock_is_locked_by_current_thread(&m)) {
         Py_FatalError("mutex is still locked");
     }
-#endif
     return 0;
 }
 

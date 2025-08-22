@@ -45,13 +45,8 @@ void py_rlock_unlock(py_rlock *m)
     PyMutex_Unlock(&m->mutex);
 }
 
-// Note that this always returns true for Python < 3.14
-bool py_rlock_is_locked(py_rlock *m)
+bool py_rlock_is_locked_by_current_thread(py_rlock *m)
 {
-    return false;
-#if PY_VERSION_HEX > 0x030E00B1
-    return PyMutex_IsLocked(&m->mutex);
-#else
-    return true;
-#endif
+    unsigned long thread = PyThread_get_thread_ident();
+    return ATOMIC_LOAD(&m->owner, memory_order_relaxed) == thread;
 }
