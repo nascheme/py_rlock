@@ -13,3 +13,12 @@ Example usage:
     py_rlock_lock(&lock);
     ...
     py_rlock_unlock(&lock);
+
+
+If you are using C++, you can use standard C++ library features, like
+`std::shared_mutex`.  With standard library locking primitives you must detach
+from the interpreter (e.g. release the GIL in the GIL-enabled build) before a
+possibly blocking call to acquire the mutex. Otherwise you might cause a
+deadlock either with the GIL or with e.g. the garbage collector on the
+free-threaded build.  PyMutex has built-in deadlock protection for the
+interpreter and can't deadlock in that way.
