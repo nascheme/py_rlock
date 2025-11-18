@@ -10,7 +10,7 @@
 #error "Require compiler support for C11 atomics."
 #endif
 
-// recursive mutex, similar to _PyRecursiveMutex or threading.RLock
+// Recursive lock, similar to _PyRecursiveMutex or threading.RLock
 typedef struct {
     PyMutex mutex;
     ATOMIC_T(unsigned long) owner;

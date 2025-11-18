@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 
-from setuptools import setup, Extension
+import os
 
-kw = dict(
-    name="rlock_test",
-    version='0.1',
-    description="Small test for py_rlock.h",
-    author="Neil Schemenauer",
-    author_email="nas@arctrix.com",
-    license="MIT",
+from setuptools import Extension, setup
+
+# Path to header files (in project root)
+root_dir = os.path.dirname(os.path.abspath(__file__))
+include_dirs = [root_dir]
+
+setup(
     ext_modules=[
-        Extension('rlock_test', ['rlock_test.c']),
+        Extension(
+            'py_locks._py_locks',
+            sources=['src/py_locks/_py_locks.c'],
+            include_dirs=include_dirs,
+        ),
     ],
-    headers=['py_rlock.h'],
 )
-
-setup(**kw)

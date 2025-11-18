@@ -1,6 +1,8 @@
 include LICENSE.txt
 include README.md
 include py_rlock.h
-include rlock_test.c
+include py_rwlock.h
+include pyproject.toml
 include setup.py
-include test_py_rlock.py
+recursive-include src/py_locks *.c *.py
+recursive-include tests *.py
