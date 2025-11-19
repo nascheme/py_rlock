@@ -47,20 +47,22 @@ def busy_wait_microseconds(microseconds):
         pass
 
 
-def do_busy_work():
-    """Do some busy work."""
-    busy_wait_microseconds(random.randint(20, 40))
+def do_busy_work(rng, avg_microseconds=30):
+    """Do busy work with random duration around the average.
+
+    Args:
+        rng: Random number generator instance
+        avg_microseconds: Average duration in microseconds (default: 30)
+                         Actual duration will be 0.8 to 1.2 times this value
+    """
+    duration = avg_microseconds * (0.8 + rng.random() * 0.4)
+    busy_wait_microseconds(duration)
 
 
-def do_short_busy_work():
-    """Do a short amount of busy work."""
-    busy_wait_microseconds(random.randint(10, 20) / 10)
-
-
-def reader_operation(rwlock, shared_counter, stats):
+def reader_operation(rwlock, shared_counter, stats, rng):
     """Perform a read operation"""
     # Do some work before acquiring lock
-    do_busy_work()
+    do_busy_work(rng)
 
     rwlock.lock_read()
 
@@ -68,7 +70,7 @@ def reader_operation(rwlock, shared_counter, stats):
     value1 = shared_counter[0]
 
     # Short work while holding lock
-    do_short_busy_work()
+    do_busy_work(rng, avg_microseconds=1.5)
 
     # Read again - should be the same
     value2 = shared_counter[0]
@@ -76,7 +78,7 @@ def reader_operation(rwlock, shared_counter, stats):
     rwlock.unlock_read()
 
     # Do some work after releasing lock
-    do_busy_work()
+    do_busy_work(rng)
 
     stats.reads_performed += 1
 
@@ -88,10 +90,10 @@ def reader_operation(rwlock, shared_counter, stats):
         )
 
 
-def writer_operation(rwlock, shared_counter, stats):
+def writer_operation(rwlock, shared_counter, stats, rng):
     """Perform a write operation"""
     # Do some work before acquiring lock
-    do_busy_work()
+    do_busy_work(rng)
 
     rwlock.lock_write()
 
@@ -99,7 +101,7 @@ def writer_operation(rwlock, shared_counter, stats):
     old_value = shared_counter[0]
 
     # Short work while holding write lock
-    do_short_busy_work()
+    do_busy_work(rng, avg_microseconds=1.5)
 
     # Non-atomic write
     shared_counter[0] = old_value + 1
@@ -107,15 +109,15 @@ def writer_operation(rwlock, shared_counter, stats):
     rwlock.unlock_write()
 
     # Do some work after releasing lock
-    do_busy_work()
+    do_busy_work(rng)
 
     stats.writes_performed += 1
 
 
-def recursive_operation(rwlock, shared_counter, stats):
+def recursive_operation(rwlock, shared_counter, stats, rng):
     """Perform a recursive lock operation"""
     # Do some work before acquiring lock
-    do_busy_work()
+    do_busy_work(rng)
 
     rwlock.lock_write()
     rwlock.lock_write()  # Recursive
@@ -127,7 +129,7 @@ def recursive_operation(rwlock, shared_counter, stats):
     rwlock.unlock_write()
 
     # Do some work after releasing lock
-    do_busy_work()
+    do_busy_work(rng)
 
     stats.recursive_performed += 1
 
@@ -135,10 +137,10 @@ def recursive_operation(rwlock, shared_counter, stats):
 # ============ Upgrade Test Mode Operations ============
 
 
-def upgrade_reader_operation(rwlock, shared_counter, stats):
+def upgrade_reader_operation(rwlock, shared_counter, stats, rng):
     """Perform a read operation with possible upgrade"""
     # Spend most time without lock (90-95% of time)
-    do_busy_work()
+    do_busy_work(rng)
 
     rwlock.lock_read()
 
@@ -146,13 +148,13 @@ def upgrade_reader_operation(rwlock, shared_counter, stats):
     value1 = shared_counter[0]
 
     # Short work while holding lock
-    do_short_busy_work()
+    do_busy_work(rng, avg_microseconds=1.5)
 
     # Read again - should be the same
     value2 = shared_counter[0]
 
     # Try to upgrade with lower probability (2% chance)
-    if random.randint(1, 100) <= 2:
+    if rng.randint(1, 100) <= 2:
         stats.upgrades_attempted += 1
         if rwlock.try_upgrade():
             stats.upgrades_succeeded += 1
@@ -161,7 +163,7 @@ def upgrade_reader_operation(rwlock, shared_counter, stats):
             shared_counter[0] += 1
 
             # Short work as writer
-            do_short_busy_work()
+            do_busy_work(rng, avg_microseconds=1.5)
 
             # Release write lock and reacquire read lock
             rwlock.unlock_write()
@@ -170,7 +172,7 @@ def upgrade_reader_operation(rwlock, shared_counter, stats):
     rwlock.unlock_read()
 
     # Spend most time without lock (90-95% of time)
-    do_busy_work()
+    do_busy_work(rng)
 
     stats.reads_performed += 1
 
@@ -182,10 +184,10 @@ def upgrade_reader_operation(rwlock, shared_counter, stats):
         )
 
 
-def upgrade_writer_operation(rwlock, shared_counter, stats):
+def upgrade_writer_operation(rwlock, shared_counter, stats, rng):
     """Perform a write operation (low contention mode)"""
     # Spend most time without lock
-    do_busy_work()
+    do_busy_work(rng)
 
     rwlock.lock_write()
 
@@ -193,32 +195,32 @@ def upgrade_writer_operation(rwlock, shared_counter, stats):
     old_value = shared_counter[0]
 
     # Short work while holding write lock
-    do_short_busy_work()
+    do_busy_work(rng, avg_microseconds=1.5)
 
     # Non-atomic write
     shared_counter[0] = old_value + 1
 
     rwlock.unlock_write()
 
-    do_busy_work()
+    do_busy_work(rng)
 
     stats.writes_performed += 1
 
 
 def upgrade_worker_thread(rwlock, shared_counter, stats, stop_flag):
     """Worker thread for upgrade test mode - low contention"""
-    # Seed random per thread
-    random.seed()
+    # Create per-thread random instance to avoid global state contention
+    rng = random.Random()
 
     while not stop_flag.is_set():
         # Randomly choose operation
         # 94% reads (with possible upgrade), 6% writes
-        op = random.randint(1, 100)
+        op = rng.randint(1, 100)
 
         if op <= 94:
-            upgrade_reader_operation(rwlock, shared_counter, stats)
+            upgrade_reader_operation(rwlock, shared_counter, stats, rng)
         else:
-            upgrade_writer_operation(rwlock, shared_counter, stats)
+            upgrade_writer_operation(rwlock, shared_counter, stats, rng)
 
 
 # ============ Standard Stress Test ============
@@ -226,22 +228,22 @@ def upgrade_worker_thread(rwlock, shared_counter, stats, stop_flag):
 
 def worker_thread(rwlock, shared_counter, stats, stop_flag):
     """Worker thread function - runs until stop_flag is set"""
-    # Seed random per thread
-    random.seed()
+    # Create per-thread random instance to avoid global state contention
+    rng = random.Random()
 
     while not stop_flag.is_set():
         # Randomly choose operation
         # 50% unlocked work, 48% reads, 2% writes (includes recursive)
-        op = random.randint(1, 100)
+        op = rng.randint(1, 100)
 
         if op <= 50:
-            do_busy_work()
+            do_busy_work(rng)
         elif op <= 98:
-            reader_operation(rwlock, shared_counter, stats)
+            reader_operation(rwlock, shared_counter, stats, rng)
         elif op <= 99:
-            writer_operation(rwlock, shared_counter, stats)
+            writer_operation(rwlock, shared_counter, stats, rng)
         else:
-            recursive_operation(rwlock, shared_counter, stats)
+            recursive_operation(rwlock, shared_counter, stats, rng)
 
 
 def run_stress_test(threads=8, duration=10):

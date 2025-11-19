@@ -33,15 +33,22 @@ def busy_wait_microseconds(microseconds):
         pass
 
 
-def unlocked_work():
-    """Do busy work without holding any lock"""
-    busy_wait_microseconds(random.randint(10, 50))
+def do_busy_work(rng, avg_microseconds=30):
+    """Do busy work with random duration around the average.
+
+    Args:
+        rng: Random number generator instance
+        avg_microseconds: Average duration in microseconds (default: 30)
+                         Actual duration will be 0.8 to 1.2 times this value
+    """
+    duration = avg_microseconds * (0.8 + rng.random() * 0.4)
+    busy_wait_microseconds(duration)
 
 
-def lock_operation(rlock, shared_counter, stats):
+def lock_operation(rlock, shared_counter, stats, rng):
     """Perform a simple lock operation"""
     # Do some work before acquiring lock
-    busy_wait_microseconds(random.randint(5, 15))
+    do_busy_work(rng, avg_microseconds=10)
 
     rlock.lock()
 
@@ -49,7 +56,7 @@ def lock_operation(rlock, shared_counter, stats):
     old_value = shared_counter[0]
 
     # Short work while holding lock
-    busy_wait_microseconds(random.randint(1, 3))
+    do_busy_work(rng, avg_microseconds=2)
 
     # Non-atomic write
     shared_counter[0] = old_value + 1
@@ -57,18 +64,18 @@ def lock_operation(rlock, shared_counter, stats):
     rlock.unlock()
 
     # Do some work after releasing lock
-    busy_wait_microseconds(random.randint(5, 15))
+    do_busy_work(rng, avg_microseconds=10)
 
     stats.locks_performed += 1
 
 
-def recursive_lock_operation(rlock, shared_counter, stats):
+def recursive_lock_operation(rlock, shared_counter, stats, rng):
     """Perform a recursive lock operation"""
     # Do some work before acquiring lock
-    busy_wait_microseconds(random.randint(5, 15))
+    do_busy_work(rng, avg_microseconds=10)
 
     # Acquire lock recursively (2-4 levels deep)
-    depth = random.randint(2, 4)
+    depth = rng.randint(2, 4)
 
     for _ in range(depth):
         rlock.lock()
@@ -77,7 +84,7 @@ def recursive_lock_operation(rlock, shared_counter, stats):
     old_value = shared_counter[0]
 
     # Short work while holding lock
-    busy_wait_microseconds(random.randint(1, 3))
+    do_busy_work(rng, avg_microseconds=2)
 
     # Non-atomic write
     shared_counter[0] = old_value + 1
@@ -87,27 +94,27 @@ def recursive_lock_operation(rlock, shared_counter, stats):
         rlock.unlock()
 
     # Do some work after releasing lock
-    busy_wait_microseconds(random.randint(5, 15))
+    do_busy_work(rng, avg_microseconds=10)
 
     stats.recursive_locks_performed += 1
 
 
 def worker_thread(rlock, shared_counter, stats, stop_flag):
     """Worker thread function - runs until stop_flag is set"""
-    # Seed random per thread
-    random.seed()
+    # Create per-thread random instance to avoid global state contention
+    rng = random.Random()
 
     while not stop_flag.is_set():
         # Randomly choose operation
         # 50% unlocked work, 30% simple lock, 20% recursive lock
-        op = random.randint(1, 100)
+        op = rng.randint(1, 100)
 
         if op <= 50:
-            unlocked_work()
+            do_busy_work(rng)
         elif op <= 80:
-            lock_operation(rlock, shared_counter, stats)
+            lock_operation(rlock, shared_counter, stats, rng)
         else:
-            recursive_lock_operation(rlock, shared_counter, stats)
+            recursive_lock_operation(rlock, shared_counter, stats, rng)
 
 
 def run_stress_test(threads=8, duration=10):
