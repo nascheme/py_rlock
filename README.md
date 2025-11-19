@@ -14,7 +14,8 @@ acquiring these locks.
 
 You can either copy the code from py_rlock.h and py_rwlock.h or copy the whole
 files into your project. Your C compiler needs to support C11 atomics. For
-MSVC, likely you will need to set the `/experimental:c11atomics` flag.
+MSVC, likely you will need to set the `/experimental:c11atomics` flag.  See
+the `setup.py` file for an example of how to set that flag.
 
 If you are using C++, you do not need this code and can use standard C++
 library features, like std::shared_mutex. With standard library locking
@@ -105,7 +106,7 @@ writer. Based on a two-mutex design. Must be zero-initialized before use.
 - Multiple readers can hold the lock simultaneously
 - Writers have exclusive access (no readers or other writers)
 - Writers can recursively acquire write locks
-- Threads holding write locks can also acquire read locks (counted via `level`)
+- Threads holding write locks can also acquire read locks
 
 ### Functions
 
